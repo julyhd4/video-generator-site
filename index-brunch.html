@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Video Generator</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #0d0d0d;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      color: #ffffff;
+      margin-bottom: 2rem;
+    }
+
+    .form-container {
+      background-color: #1a1a1a;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.05);
+      width: 100%;
+      max-width: 500px;
+    }
+
+    input, select, button {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.8rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    input, select {
+      background-color: #2a2a2a;
+      color: #f0f0f0;
+    }
+
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    #status {
+      margin-top: 1rem;
+      font-style: italic;
+      color: #ccc;
+    }
+
+    #videoContainer {
+      margin-top: 2rem;
+    }
+
+    video {
+      border-radius: 12px;
+      width: 100%;
+      max-width: 720px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🎬 Video Generator</h1>
+
+  <div class="form-container">
+    <form id="videoForm">
+      <input type="text" id="prompt" placeholder="Enter your video prompt..." required />
+      <select id="duration">
+        <option value="5">5 seconds</option>
+        <option value="10">10 seconds</option>
+        <option value="15" selected>15 seconds</option>
+        <option value="20">20 seconds</option>
+      </select>
+      <button type="submit">Generate Video</button>
+    </form>
+    <div id="status"></div>
+  </div>
+
+  <div id="videoContainer"></div>
+
+  <script>
+    const form = document.getElementById('videoForm');
+    const statusDiv = document.getElementById('status');
+    const videoContainer = document.getElementById('videoContainer');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      statusDiv.textContent = "Sending request...";
+      videoContainer.innerHTML = "";
+
+      const prompt = document.getElementById('prompt').value;
+      const duration = document.getElementById('duration').value;
+
+      try {
+        const response = await fetch("/api/tasks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, duration })
+        });
+
+        const data = await response.json();
+        const taskId = data.taskId;
+        statusDiv.textContent = "Waiting for video to be ready...";
+
+        const pollTask = async () => {
+          const res = await fetch(`/api/tasks/${taskId}`);
+          const taskData = await res.json();
+
+          if (taskData.status === "completed") {
+            statusDiv.textContent = "✅ Video is ready!";
+            const video = document.createElement("video");
+            video.src = taskData.videoUrl;
+            video.controls = true;
+            videoContainer.appendChild(video);
+          } else if (taskData.status === "failed") {
+            statusDiv.textContent = "❌ Video generation failed.";
+          } else {
+            setTimeout(pollTask, 2000);
+          }
+        };
+
+        pollTask();
+      } catch (err) {
+        console.error(err);
+        statusDiv.textContent = "Error sending request.";
+      }
+    });
+  </script>
+
+</body>
+</html>
